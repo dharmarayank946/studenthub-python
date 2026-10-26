@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary and backup files
+*_backup.json
+*_backup.py
+*.bak
+*.tmp
+
+# Auto-generated reports and exports
+reports/*.csv
+!reports/.gitkeep
+
+# Operating System files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE and Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Web Frontend & Virtual Environments
+node_modules/
+frontend/dist/
+dist/
+.vercel/
+.env
+.venv/
+

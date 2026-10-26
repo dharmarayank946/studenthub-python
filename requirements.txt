@@ -1,0 +1,3 @@
+# StudentHub — Python Edition
+# Standard library only (No external pip dependencies required).
+# Python 3.10 or newer recommended.

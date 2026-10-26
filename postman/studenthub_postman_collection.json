@@ -1,0 +1,155 @@
+{
+  "info": {
+    "_postman_id": "studenthub-api-v1",
+    "name": "StudentHub API",
+    "description": "Postman Collection for StudentHub Academic FastAPI backend deployed on Render.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Liveness probe verifying database connectivity and records count."
+      },
+      "response": [
+        {
+          "name": "Health Check - OK",
+          "status": "OK",
+          "code": 200,
+          "body": "{\"status\":\"healthy\",\"service\":\"studenthub-api\",\"version\":\"1.0.0\",\"storage\":\"JSON\",\"total_records\":5}"
+        }
+      ]
+    },
+    {
+      "name": "List All Students",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students?search=&course=All&grade=All&status=All&sort_by=id&reverse=false",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students"],
+          "query": [
+            { "key": "search", "value": "" },
+            { "key": "course", "value": "All" },
+            { "key": "grade", "value": "All" },
+            { "key": "status", "value": "All" },
+            { "key": "sort_by", "value": "id" },
+            { "key": "reverse", "value": "false" }
+          ]
+        },
+        "description": "Retrieve students with multi-criteria search, filtering, and sorting."
+      }
+    },
+    {
+      "name": "Get Student By ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students/STU-001",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students", "STU-001"]
+        },
+        "description": "Get student profile details."
+      }
+    },
+    {
+      "name": "Create Student",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"student_id\": \"STU-108\",\n  \"name\": \"Priya Sundaram\",\n  \"course\": \"Computer Science\",\n  \"marks\": 91.5,\n  \"email\": \"priya@university.edu\",\n  \"phone\": \"+91 98765 12345\",\n  \"enrollment_date\": \"2026-10-26\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students"]
+        },
+        "description": "Add new student with academic validation."
+      }
+    },
+    {
+      "name": "Update Student",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Priya Sundaram (Honors)\",\n  \"marks\": 94.0\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students/STU-108",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students", "STU-108"]
+        },
+        "description": "Update existing student info."
+      }
+    },
+    {
+      "name": "Delete Student",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students/STU-108",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students", "STU-108"]
+        },
+        "description": "Permanently remove student record."
+      }
+    },
+    {
+      "name": "Dashboard Metrics Summary",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students/metrics/summary",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students", "metrics", "summary"]
+        },
+        "description": "Aggregate statistics, passing rates, grade & status distributions."
+      }
+    },
+    {
+      "name": "Export Records to CSV",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/students/export/csv",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "students", "export", "csv"]
+        },
+        "description": "Download records as CSV attachment."
+      }
+    }
+  ]
+}
