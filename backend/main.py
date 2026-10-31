@@ -22,6 +22,7 @@ sys.path.insert(0, ROOT_DIR)
 from models import Student
 from storage import StudentStorage
 from student_service import StudentService
+from auth import AuthManager
 
 app = FastAPI(
     title="StudentHub Academic API",
@@ -47,11 +48,38 @@ if DATABASE_URL:
     storage_backend = "PostgreSQL"
 
 service = StudentService(storage=StudentStorage())
+auth_manager = AuthManager()
 
 
 # ---------------------------------------------------------
 # Request / Response Schemas
 # ---------------------------------------------------------
+class UserRegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64, example="johndoe")
+    email: str = Field(..., min_length=5, max_length=128, example="john@studenthub.edu")
+    password: str = Field(..., min_length=6, max_length=128, example="SecurePass123")
+    full_name: str = Field(..., min_length=2, max_length=128, example="John Doe")
+    department: Optional[str] = Field("Computer Science", max_length=128)
+    phone: Optional[str] = Field("", max_length=32)
+    bio: Optional[str] = Field("", max_length=512)
+
+
+class UserLoginRequest(BaseModel):
+    identifier: str = Field(..., min_length=3, max_length=128, example="admin")
+    password: str = Field(..., min_length=1, max_length=128, example="Admin@123")
+
+
+class UserProfileUpdateRequest(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=128)
+    email: str = Field(..., min_length=5, max_length=128)
+    department: Optional[str] = Field("Computer Science", max_length=128)
+    phone: Optional[str] = Field("", max_length=32)
+    bio: Optional[str] = Field("", max_length=512)
+
+
+class UserPasswordChangeRequest(BaseModel):
+    old_password: str = Field(..., min_length=1, max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
 class StudentCreateRequest(BaseModel):
     student_id: str = Field(..., min_length=1, max_length=32, example="STU-101")
     name: str = Field(..., min_length=2, max_length=128, example="Aarav Sharma")
@@ -237,6 +265,91 @@ def export_students_csv():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=studenthub_records.csv"}
     )
+
+
+# ---------------------------------------------------------
+# Authentication & User Profile Endpoints
+# ---------------------------------------------------------
+@app.post("/api/v1/auth/register", tags=["Authentication"])
+def register_user(req: UserRegisterRequest):
+    """Register a new user account with secure password hashing."""
+    success, msg, user_data = auth_manager.register_user(
+        username=req.username,
+        email=req.email,
+        password=req.password,
+        full_name=req.full_name,
+        department=req.department or "Computer Science",
+        phone=req.phone or "",
+        bio=req.bio or ""
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg
+        )
+    return {"success": True, "message": msg, "user": user_data}
+
+
+@app.post("/api/v1/auth/login", tags=["Authentication"])
+def login_user(req: UserLoginRequest):
+    """Authenticate a user using username or email and password."""
+    success, msg, user_data = auth_manager.authenticate_user(
+        identifier=req.identifier,
+        password=req.password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=msg
+        )
+    return {"success": True, "message": msg, "user": user_data}
+
+
+@app.get("/api/v1/auth/profile/{user_id}", tags=["Authentication"])
+def get_user_profile(user_id: int):
+    """Retrieve user profile information."""
+    user = auth_manager.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+    return {"success": True, "user": user}
+
+
+@app.put("/api/v1/auth/profile/{user_id}", tags=["Authentication"])
+def update_user_profile(user_id: int, req: UserProfileUpdateRequest):
+    """Update profile details for a user."""
+    success, msg, updated = auth_manager.update_user_profile(
+        user_id=user_id,
+        full_name=req.full_name,
+        email=req.email,
+        department=req.department or "Computer Science",
+        phone=req.phone or "",
+        bio=req.bio or ""
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg
+        )
+    return {"success": True, "message": msg, "user": updated}
+
+
+@app.post("/api/v1/auth/change-password/{user_id}", tags=["Authentication"])
+def change_password(user_id: int, req: UserPasswordChangeRequest):
+    """Change user password after verifying existing credentials."""
+    success, msg = auth_manager.change_user_password(
+        user_id=user_id,
+        old_password=req.old_password,
+        new_password=req.new_password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg
+        )
+    return {"success": True, "message": msg}
 
 
 if __name__ == "__main__":

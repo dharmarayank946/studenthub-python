@@ -31,4 +31,7 @@ dist/
 .vercel/
 .env
 .venv/
+data/*.db
+*.db
+
 

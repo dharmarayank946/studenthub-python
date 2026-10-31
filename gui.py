@@ -24,6 +24,7 @@ from tkinter import ttk, messagebox, filedialog
 from models import Student
 from storage import StudentStorage
 from student_service import StudentService
+from auth import AuthManager
 
 
 # =============================================================================
@@ -71,16 +72,19 @@ class StudentHubGUI:
         self.storage = StudentStorage()
         self.service = StudentService(self.storage)
 
+        # Authentication Engine & Session State
+        self.auth = AuthManager()
+        self.current_user = None
+        self.auth_frame = None
+        self.app_frame = None
+
         # State
         self.current_page = "dashboard"
         self.nav_buttons = {}
         self.selected_student_for_profile = None
 
-        # Build Main Frame: Left Sidebar + Right Content Area
-        self._build_sidebar_and_content_split()
-
-        # Start on Dashboard
-        self.show_dashboard_page()
+        # Build Main Interface (Starts with Auth Screen if not logged in)
+        self.show_auth_screen()
 
     def _center_and_elevate_window(self, width: int, height: int):
         """Center window on screen and elevate smoothly in front of all applications."""
@@ -101,6 +105,234 @@ class StudentHubGUI:
             self.root.focus_force()
         except Exception:
             pass
+
+    def _ensure_app_frame(self):
+        """Ensure app_frame and workspace are built before page rendering."""
+        if not hasattr(self, "app_frame") or self.app_frame is None or not self.app_frame.winfo_exists():
+            if self.current_user is None:
+                self.current_user = self.auth.get_user_by_id(1) or {
+                    "id": 1,
+                    "username": "admin",
+                    "email": "admin@studenthub.edu",
+                    "full_name": "System Administrator",
+                    "role": "Administrator",
+                    "department": "Academic Operations",
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+            if hasattr(self, "auth_frame") and self.auth_frame and self.auth_frame.winfo_exists():
+                self.auth_frame.destroy()
+            self._build_sidebar_and_content_split()
+
+    def show_auth_screen(self):
+        """Construct the elegant Academic Authentication Portal (Login & Registration)."""
+        if hasattr(self, "app_frame") and self.app_frame and self.app_frame.winfo_exists():
+            self.app_frame.destroy()
+
+        self.auth_frame = tk.Frame(self.root, bg=COLOR_CANVAS_BG)
+        self.auth_frame.pack(fill=tk.BOTH, expand=True)
+
+        center_box = tk.Frame(self.auth_frame, bg=COLOR_CANVAS_BG)
+        center_box.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Elevated Authentication Card
+        card = tk.Frame(
+            center_box,
+            bg=COLOR_CARD_BG,
+            highlightbackground=COLOR_BORDER,
+            highlightthickness=1,
+            padx=36,
+            pady=32,
+            width=460
+        )
+        card.pack()
+
+        # Branding Header
+        tk.Label(
+            card,
+            text="🎓 StudentHub",
+            font=("Segoe UI", 22, "bold"),
+            fg=COLOR_TEXT_MAIN,
+            bg=COLOR_CARD_BG
+        ).pack(anchor="center")
+
+        tk.Label(
+            card,
+            text="Enterprise Academic & Staff Portal • Authentication",
+            font=("Segoe UI", 10),
+            fg=COLOR_TEXT_MUTED,
+            bg=COLOR_CARD_BG
+        ).pack(anchor="center", pady=(2, 20))
+
+        # Mode Selector: [ Sign In ] [ Register ]
+        mode_frame = tk.Frame(card, bg=COLOR_CARD_SUB, padx=3, pady=3)
+        mode_frame.pack(fill=tk.X, pady=(0, 20))
+
+        def _switch_mode(new_mode):
+            if new_mode == "login":
+                login_tab.configure(bg=COLOR_PRIMARY, fg="#FFFFFF")
+                reg_tab.configure(bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MUTED)
+                reg_container.pack_forget()
+                login_container.pack(fill=tk.X)
+            else:
+                reg_tab.configure(bg=COLOR_PRIMARY, fg="#FFFFFF")
+                login_tab.configure(bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MUTED)
+                login_container.pack_forget()
+                reg_container.pack(fill=tk.X)
+            status_msg.configure(text="")
+
+        login_tab = tk.Button(
+            mode_frame,
+            text="🔑  Sign In",
+            font=("Segoe UI", 10, "bold"),
+            bg=COLOR_PRIMARY,
+            fg="#FFFFFF",
+            relief=tk.FLAT,
+            bd=0,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=lambda: _switch_mode("login")
+        )
+        login_tab.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        reg_tab = tk.Button(
+            mode_frame,
+            text="📝  Create Account",
+            font=("Segoe UI", 10, "bold"),
+            bg=COLOR_CARD_SUB,
+            fg=COLOR_TEXT_MUTED,
+            relief=tk.FLAT,
+            bd=0,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=lambda: _switch_mode("register")
+        )
+        reg_tab.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+
+        # Status Message
+        status_msg = tk.Label(card, text="", font=("Segoe UI", 9, "bold"), bg=COLOR_CARD_BG, wraplength=380)
+        status_msg.pack(fill=tk.X, pady=(0, 10))
+
+        # ---------------- LOGIN CONTAINER ----------------
+        login_container = tk.Frame(card, bg=COLOR_CARD_BG)
+        login_container.pack(fill=tk.X)
+
+        tk.Label(login_container, text="Username or Email", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 4))
+        login_ident_entry = tk.Entry(login_container, font=("Segoe UI", 11), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        login_ident_entry.pack(fill=tk.X, ipady=8, pady=(0, 14))
+        login_ident_entry.insert(0, "admin")
+
+        tk.Label(login_container, text="Password", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 4))
+        login_pwd_entry = tk.Entry(login_container, font=("Segoe UI", 11), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        login_pwd_entry.pack(fill=tk.X, ipady=8, pady=(0, 18))
+        login_pwd_entry.insert(0, "Admin@123")
+
+        def _do_login():
+            ident = login_ident_entry.get().strip()
+            pwd = login_pwd_entry.get()
+            ok, msg, user = self.auth.login(ident, pwd)
+            if ok:
+                self.current_user = user
+                self.auth_frame.destroy()
+                self._build_sidebar_and_content_split()
+                self.show_dashboard_page()
+            else:
+                status_msg.configure(text=f"⚠️ {msg}", fg=COLOR_DANGER_FG)
+
+        login_btn = tk.Button(
+            login_container,
+            text="Sign In to Portal →",
+            font=("Segoe UI", 11, "bold"),
+            bg=COLOR_PRIMARY,
+            fg="#FFFFFF",
+            activebackground=COLOR_PRIMARY_HOVER,
+            relief=tk.FLAT,
+            bd=0,
+            ipady=8,
+            cursor="hand2",
+            command=_do_login
+        )
+        login_btn.pack(fill=tk.X, pady=(0, 12))
+
+        # Quick preset helper
+        tk.Label(
+            login_container,
+            text="Pre-configured Admin: admin  •  Password: Admin@123",
+            font=("Segoe UI", 8, "italic"),
+            fg=COLOR_TEXT_MUTED,
+            bg=COLOR_CARD_BG
+        ).pack(anchor="center")
+
+        # ---------------- REGISTRATION CONTAINER ----------------
+        reg_container = tk.Frame(card, bg=COLOR_CARD_BG)
+
+        tk.Label(reg_container, text="Full Name", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_name_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        reg_name_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(reg_container, text="Username", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_user_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        reg_user_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(reg_container, text="Email Address", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_email_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        reg_email_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(reg_container, text="Department / Faculty Role", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_dept_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        reg_dept_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
+        reg_dept_entry.insert(0, "Computer Science")
+
+        tk.Label(reg_container, text="Password (min 6 chars)", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_pwd_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        reg_pwd_entry.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(reg_container, text="Confirm Password", font=("Segoe UI", 9, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 3))
+        reg_pwd2_entry = tk.Entry(reg_container, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        reg_pwd2_entry.pack(fill=tk.X, ipady=6, pady=(0, 12))
+
+        def _do_register():
+            fn = reg_name_entry.get().strip()
+            u = reg_user_entry.get().strip()
+            em = reg_email_entry.get().strip()
+            dept = reg_dept_entry.get().strip()
+            p1 = reg_pwd_entry.get()
+            p2 = reg_pwd2_entry.get()
+
+            ok, msg, new_user = self.auth.register(
+                username=u,
+                email=em,
+                full_name=fn,
+                password=p1,
+                confirm_password=p2,
+                role="Faculty",
+                department=dept
+            )
+            if ok:
+                status_msg.configure(text=f"✅ {msg}", fg=COLOR_BADGE_FG)
+                _switch_mode("login")
+                login_ident_entry.delete(0, tk.END)
+                login_ident_entry.insert(0, u)
+                login_pwd_entry.delete(0, tk.END)
+                login_pwd_entry.insert(0, p1)
+            else:
+                status_msg.configure(text=f"⚠️ {msg}", fg=COLOR_DANGER_FG)
+
+        reg_btn = tk.Button(
+            reg_container,
+            text="Create Account",
+            font=("Segoe UI", 10, "bold"),
+            bg=COLOR_PRIMARY,
+            fg="#FFFFFF",
+            activebackground=COLOR_PRIMARY_HOVER,
+            relief=tk.FLAT,
+            bd=0,
+            ipady=7,
+            cursor="hand2",
+            command=_do_register
+        )
+        reg_btn.pack(fill=tk.X)
 
     # =========================================================================
     # Two-Column Layout: Left Vertical Sidebar + Right Content Area
@@ -135,6 +367,16 @@ class StudentHubGUI:
             bg=COLOR_SIDEBAR_BG
         ).pack(anchor="w", pady=(2, 0))
 
+        # Active User indicator
+        user_name = (self.current_user.get("full_name", "Admin") if self.current_user else "Admin")
+        tk.Label(
+            sb_brand,
+            text=f"👤 {user_name[:20]}",
+            font=("Segoe UI", 8, "bold"),
+            fg="#6EE7B7",
+            bg=COLOR_SIDEBAR_BG
+        ).pack(anchor="w", pady=(3, 0))
+
         # Thin separator line
         tk.Frame(self.sidebar, bg="#1E293B", height=1).pack(fill=tk.X, padx=12, pady=(0, 16))
 
@@ -145,9 +387,10 @@ class StudentHubGUI:
         nav_items = [
             ("dashboard", "📊  Dashboard", self.show_dashboard_page),
             ("management", "👥  Directory", self.show_management_page),
-            ("profile", "👤  Student Profile", self.show_profile_page),
+            ("profile", "🎓  Student Profile", self.show_profile_page),
             ("academic", "📈  Performance", self.show_academic_page),
             ("reports", "📑  Export & Reports", self.show_reports_page),
+            ("user_profile", "👤  My Profile", self.show_user_profile_page),
             ("settings", "⚙️  Settings", self.show_settings_page),
         ]
 
@@ -189,7 +432,22 @@ class StudentHubGUI:
             cursor="hand2",
             bd=0,
             command=self.open_add_student_modal
-        ).pack(fill=tk.X, pady=(0, 10))
+        ).pack(fill=tk.X, pady=(0, 6))
+
+        tk.Button(
+            sb_footer,
+            text="🚪 Log Out",
+            font=("Segoe UI", 9, "bold"),
+            bg="#334155",
+            fg="#F8FAFC",
+            activebackground="#475569",
+            relief=tk.FLAT,
+            padx=12,
+            pady=6,
+            cursor="hand2",
+            bd=0,
+            command=self.logout_user
+        ).pack(fill=tk.X, pady=(0, 8))
 
         tk.Label(
             sb_footer,
@@ -1018,6 +1276,214 @@ class StudentHubGUI:
         result = self.service.export_csv()
         if result:
             messagebox.showinfo("Export Successful", f"Records exported to:\n\n{result}")
+
+    # =========================================================================
+    # Page: User Account Profile & Security
+    # =========================================================================
+    def show_user_profile_page(self):
+        """Render staff account profile details, editing, and password management."""
+        self._ensure_app_frame()
+        self.current_page = "user_profile"
+        self._update_nav_highlight("user_profile")
+        self._clear_content()
+
+        container = self._create_scrollable_container()
+
+        u = self.current_user or {
+            "id": 1,
+            "username": "admin",
+            "email": "admin@studenthub.edu",
+            "full_name": "System Administrator",
+            "role": "Administrator",
+            "department": "Academic Operations",
+            "phone": "+1 (555) 019-2834",
+            "bio": "Lead Administrator managing StudentHub records.",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "last_login": "Active Now"
+        }
+
+        # Page Header
+        tk.Label(container, text="👤 Staff Profile & Account Security", font=("Segoe UI", 16, "bold"), fg=COLOR_TEXT_MAIN, bg=COLOR_CANVAS_BG).pack(anchor="w", pady=(0, 4))
+        tk.Label(container, text="View and update your staff profile credentials, department info, and security credentials.", font=("Segoe UI", 10), fg=COLOR_TEXT_MUTED, bg=COLOR_CANVAS_BG).pack(anchor="w", pady=(0, 16))
+
+        # Main Profile Card: Identity & Overview
+        overview_card = tk.Frame(container, bg=COLOR_CARD_BG, highlightbackground=COLOR_BORDER, highlightthickness=1, padx=24, pady=20)
+        overview_card.pack(fill=tk.X, pady=(0, 16))
+
+        top_row = tk.Frame(overview_card, bg=COLOR_CARD_BG)
+        top_row.pack(fill=tk.X, pady=(0, 12))
+
+        # Initials Badge
+        full_n = u.get("full_name", "Staff User")
+        initials = "".join([w[0].upper() for w in full_n.split()[:2]]) or "ST"
+        avatar = tk.Label(top_row, text=initials, font=("Segoe UI", 16, "bold"), fg="#FFFFFF", bg=COLOR_PRIMARY, width=4, height=2)
+        avatar.pack(side=tk.LEFT, padx=(0, 16))
+
+        n_box = tk.Frame(top_row, bg=COLOR_CARD_BG)
+        n_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(n_box, text=full_n, font=("Segoe UI", 15, "bold"), fg=COLOR_TEXT_MAIN, bg=COLOR_CARD_BG).pack(anchor="w")
+        tk.Label(n_box, text=f"@{u.get('username', 'user')}  •  {u.get('role', 'Faculty')} ({u.get('department', 'General')})", font=("Segoe UI", 9), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(2, 0))
+
+        tk.Frame(overview_card, bg=COLOR_BORDER, height=1).pack(fill=tk.X, pady=(0, 12))
+
+        grid = tk.Frame(overview_card, bg=COLOR_CARD_BG)
+        grid.pack(fill=tk.X)
+
+        fields = [
+            ("Email Address", u.get("email", "N/A")),
+            ("Phone Contact", u.get("phone", "N/A") or "Not configured"),
+            ("Account Created", str(u.get("created_at", "N/A"))[:10]),
+            ("Last Login Session", str(u.get("last_login", "Active Now"))[:16])
+        ]
+        for idx, (lbl, val) in enumerate(fields):
+            r = idx // 2
+            c = idx % 2
+            cell = tk.Frame(grid, bg=COLOR_CARD_BG)
+            cell.grid(row=r, column=c, sticky="w", padx=10, pady=4)
+            tk.Label(cell, text=lbl, font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w")
+            tk.Label(cell, text=val, font=("Segoe UI", 10), fg=COLOR_TEXT_MAIN, bg=COLOR_CARD_BG).pack(anchor="w")
+
+        # Two-Column Workspace: Left (Edit Profile), Right (Change Password & Session)
+        sub_grid = tk.Frame(container, bg=COLOR_CANVAS_BG)
+        sub_grid.pack(fill=tk.X, pady=(0, 16))
+
+        # Edit Profile Card
+        edit_card = tk.Frame(sub_grid, bg=COLOR_CARD_BG, highlightbackground=COLOR_BORDER, highlightthickness=1, padx=24, pady=20)
+        edit_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        tk.Label(edit_card, text="✏️ Edit Profile Details", font=("Segoe UI", 12, "bold"), fg=COLOR_TEXT_MAIN, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 12))
+
+        tk.Label(edit_card, text="Full Name", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        e_name = tk.Entry(edit_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        e_name.pack(fill=tk.X, ipady=6, pady=(0, 8))
+        e_name.insert(0, u.get("full_name", ""))
+
+        tk.Label(edit_card, text="Email Address", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        e_email = tk.Entry(edit_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        e_email.pack(fill=tk.X, ipady=6, pady=(0, 8))
+        e_email.insert(0, u.get("email", ""))
+
+        tk.Label(edit_card, text="Department", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        e_dept = tk.Entry(edit_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        e_dept.pack(fill=tk.X, ipady=6, pady=(0, 8))
+        e_dept.insert(0, u.get("department", ""))
+
+        tk.Label(edit_card, text="Phone", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        e_phone = tk.Entry(edit_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0)
+        e_phone.pack(fill=tk.X, ipady=6, pady=(0, 10))
+        e_phone.insert(0, u.get("phone", ""))
+
+        edit_status = tk.Label(edit_card, text="", font=("Segoe UI", 9, "bold"), bg=COLOR_CARD_BG)
+        edit_status.pack(anchor="w", pady=(0, 6))
+
+        def _save_profile_info():
+            fn = e_name.get().strip()
+            em = e_email.get().strip()
+            dp = e_dept.get().strip()
+            ph = e_phone.get().strip()
+
+            ok, msg, updated = self.auth.update_profile(u["id"], full_name=fn, email=em, department=dp, phone=ph)
+            if ok:
+                self.current_user = updated
+                edit_status.configure(text=f"✅ {msg}", fg=COLOR_BADGE_FG)
+                self.root.after(1000, self.show_user_profile_page)
+            else:
+                edit_status.configure(text=f"⚠️ {msg}", fg=COLOR_DANGER_FG)
+
+        tk.Button(
+            edit_card,
+            text="Save Profile Updates",
+            font=("Segoe UI", 9, "bold"),
+            bg=COLOR_PRIMARY,
+            fg="#FFFFFF",
+            activebackground=COLOR_PRIMARY_HOVER,
+            relief=tk.FLAT,
+            bd=0,
+            padx=16,
+            pady=7,
+            cursor="hand2",
+            command=_save_profile_info
+        ).pack(anchor="w")
+
+        # Change Password Card
+        pwd_card = tk.Frame(sub_grid, bg=COLOR_CARD_BG, highlightbackground=COLOR_BORDER, highlightthickness=1, padx=24, pady=20)
+        pwd_card.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(10, 0))
+
+        tk.Label(pwd_card, text="🔒 Change Password", font=("Segoe UI", 12, "bold"), fg=COLOR_TEXT_MAIN, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 12))
+
+        tk.Label(pwd_card, text="Current Password", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        p_curr = tk.Entry(pwd_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        p_curr.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(pwd_card, text="New Password (min 6 chars)", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        p_new = tk.Entry(pwd_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        p_new.pack(fill=tk.X, ipady=6, pady=(0, 8))
+
+        tk.Label(pwd_card, text="Confirm New Password", font=("Segoe UI", 8, "bold"), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(0, 2))
+        p_conf = tk.Entry(pwd_card, font=("Segoe UI", 10), bg=COLOR_CARD_SUB, fg=COLOR_TEXT_MAIN, relief=tk.FLAT, bd=0, show="*")
+        p_conf.pack(fill=tk.X, ipady=6, pady=(0, 10))
+
+        pwd_status = tk.Label(pwd_card, text="", font=("Segoe UI", 9, "bold"), bg=COLOR_CARD_BG)
+        pwd_status.pack(anchor="w", pady=(0, 6))
+
+        def _do_update_pwd():
+            c_p = p_curr.get()
+            n_p = p_new.get()
+            cf_p = p_conf.get()
+
+            ok, msg = self.auth.change_password(u["id"], c_p, n_p, cf_p)
+            if ok:
+                pwd_status.configure(text=f"✅ {msg}", fg=COLOR_BADGE_FG)
+                p_curr.delete(0, tk.END)
+                p_new.delete(0, tk.END)
+                p_conf.delete(0, tk.END)
+            else:
+                pwd_status.configure(text=f"⚠️ {msg}", fg=COLOR_DANGER_FG)
+
+        tk.Button(
+            pwd_card,
+            text="Update Password",
+            font=("Segoe UI", 9, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            activebackground="#0369A1",
+            relief=tk.FLAT,
+            bd=0,
+            padx=16,
+            pady=7,
+            cursor="hand2",
+            command=_do_update_pwd
+        ).pack(anchor="w")
+
+        # Logout Action Card
+        logout_card = tk.Frame(container, bg=COLOR_CARD_BG, highlightbackground=COLOR_BORDER, highlightthickness=1, padx=24, pady=16)
+        logout_card.pack(fill=tk.X, pady=(0, 16))
+
+        tk.Label(logout_card, text="Session Control", font=("Segoe UI", 11, "bold"), fg=COLOR_TEXT_MAIN, bg=COLOR_CARD_BG).pack(anchor="w")
+        tk.Label(logout_card, text="Securely terminate your desktop session. You will be redirected to the sign-in portal.", font=("Segoe UI", 9), fg=COLOR_TEXT_MUTED, bg=COLOR_CARD_BG).pack(anchor="w", pady=(2, 8))
+
+        tk.Button(
+            logout_card,
+            text="🚪 Sign Out of StudentHub",
+            font=("Segoe UI", 9, "bold"),
+            bg="#EF4444",
+            fg="#FFFFFF",
+            activebackground="#DC2626",
+            relief=tk.FLAT,
+            bd=0,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+            command=self.logout_user
+        ).pack(anchor="w")
+
+    def logout_user(self):
+        """Log out the current user session and return to authentication portal."""
+        if messagebox.askyesno("Log Out Confirmation", "Are you sure you want to log out of StudentHub?"):
+            self.current_user = None
+            if hasattr(self, "app_frame") and self.app_frame and self.app_frame.winfo_exists():
+                self.app_frame.destroy()
+            self.show_auth_screen()
 
     # =========================================================================
     # Page 6: Settings
